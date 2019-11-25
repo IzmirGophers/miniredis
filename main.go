@@ -6,17 +6,31 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/semihalev/log"
 )
 
 var (
 	host, port, dbFileName string
-	store                  map[string]string
+	bgSaveInterval         time.Duration
+	appLog                 log.Logger
+)
+
+const (
+	errParamNotEnough       = "Param not enough (required %b)"
+	infoDbLoadings          = "DB Loading"
+	infoDBFileDoesNotExists = "DB file does not exists, creating (%s)"
+	infoDBFileOpening       = "DB file opening (%s)"
+	infoTCPListening        = "TCP Listening (%s)"
+)
+
+const (
+	ver = 1.0
 )
 
 type kv struct {
@@ -24,120 +38,135 @@ type kv struct {
 	Value string `json:"val"`
 }
 
-type Store struct {
+type store struct {
 	sync.RWMutex
 	l map[string]string
 }
 
 func init() {
-	flag.StringVar(&host, "host", "127.0.0.1", "host")
-	flag.StringVar(&port, "port", "1234", "port")
-	flag.StringVar(&dbFileName, "file", "store.db", "file")
+	flag.StringVar(&host, "host", "127.0.0.1", "Host")
+	flag.StringVar(&port, "port", "1234", "Port")
+	flag.StringVar(&dbFileName, "file", "store.db", "Store DB filename")
+	flag.DurationVar(&bgSaveInterval, "bgSaveInterval", 5, "Background save interval")
 }
 
 func main() {
 	flag.Parse()
 
-	var store = &Store{}
-	store.l = make(map[string]string)
+	appLog = log.New("host", host, "port", port, "dbfile", dbFileName, "ver", ver)
+	appLog.Info("oOoOo miniredis oOoO")
+
+	memStore := &store{}
+	memStore.l = make(map[string]string)
+
+	commands := map[string]func(*store, net.Conn, []string){
+		"GET": get,
+		"SET": set,
+		"DEL": del,
+	}
 
 	if !fileExists(dbFileName) {
+		appLog.Info(fmt.Sprintf(infoDBFileDoesNotExists, dbFileName))
+
 		_, err := os.Create(dbFileName)
 
 		if err != nil {
-			log.Fatal("Error creating DBfile:", err.Error())
+			appLog.Error(err.Error())
 		}
 	}
 
+	appLog.Info(fmt.Sprintf(infoDBFileOpening, dbFileName))
 	dbFile, err := os.OpenFile(dbFileName, os.O_RDWR, 0644)
 
 	if err != nil {
-		log.Fatal("dbfile can not open")
+		appLog.Error(err.Error())
 	}
 
-	go bgSave(store, dbFile)
-	loadDB(store)
+	go bgSave(memStore, dbFile)
+	loadDB(memStore)
 
 	hostURI := fmt.Sprintf("%s:%s", host, port)
-
-	l, err := net.Listen("tcp", hostURI)
+	tcpServ, err := net.Listen("tcp", hostURI)
 
 	if err != nil {
-		log.Fatal("Error listening:", err.Error())
+		appLog.Error(err.Error())
 	}
 
-	defer l.Close()
+	defer tcpServ.Close()
 
-	fmt.Println("Listening on ", hostURI)
+	appLog.Info(fmt.Sprintf(infoTCPListening, hostURI))
 
-	// Listen for an incoming connection.
-	conn, err := l.Accept()
+	conn, err := tcpServ.Accept()
 
 	if err != nil {
-		log.Fatal("Error accepting: ", err.Error())
+		appLog.Error(err.Error())
 	}
 
 	for {
 		msg, _ := bufio.NewReader(conn).ReadString('\n')
-
 		params := strings.Fields(msg)
 
 		if len(params) < 1 {
-			fmt.Println("param not enough")
+			appLog.Error(errParamNotEnough)
 		}
 
-		switch params[0] {
-		case "SET", "set":
-			if len(params) < 3 {
-				fmt.Println("param not enough")
-				break
-			}
+		cmd, exists := commands[strings.ToUpper(params[0])]
 
-			store.RLock()
-			store.l[params[1]] = params[2]
-			store.RUnlock()
-
-			conn.Write([]byte("OK\n"))
-			break
-		case "GET", "get":
-			if len(params) < 2 {
-				fmt.Println("param not enough")
-				break
-			}
-			store.RLock()
-			conn.Write([]byte(store.l[params[1]] + "\n"))
-			store.RUnlock()
-
-			break
-		case "DEL", "del":
-
-			if len(params) < 2 {
-				fmt.Println("param not enough")
-				break
-			}
-
-			store.RLock()
-			_, exists := store.l[params[1]]
-
-			if exists {
-				delete(store.l, params[1])
-			}
-			store.RUnlock()
-
-			conn.Write([]byte("OK\n"))
-			break
-		default:
-			conn.Write([]byte("UNKNOWN\n"))
+		if !exists {
+			conn.Write([]byte("UNKNONW\n"))
 			break
 		}
+
+		cmd(memStore, conn, params)
 	}
+}
+
+//cmds
+func get(store *store, conn net.Conn, params []string) {
+	if len(params) < 2 {
+		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
+		return
+	}
+
+	store.RLock()
+	conn.Write([]byte(store.l[params[1]] + "\n"))
+	store.RUnlock()
 
 }
 
+func del(store *store, conn net.Conn, params []string) {
+	if len(params) < 2 {
+		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
+		return
+	}
+
+	store.RLock()
+	_, exists := store.l[params[1]]
+	if exists {
+		delete(store.l, params[1])
+	}
+	store.RUnlock()
+
+	conn.Write([]byte("OK\n"))
+}
+
+func set(store *store, conn net.Conn, params []string) {
+	if len(params) < 3 {
+		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
+		return
+	}
+
+	store.RLock()
+	store.l[params[1]] = params[2]
+	store.RUnlock()
+
+	conn.Write([]byte("OK\n"))
+}
+
 //bgSave background save function
-func bgSave(s *Store, f *os.File) {
+func bgSave(s *store, f *os.File) {
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(bgSaveInterval * time.Second)
 		var storedb = []kv{}
 
 		s.RLock()
@@ -152,23 +181,24 @@ func bgSave(s *Store, f *os.File) {
 		storeRAW, err := json.Marshal(storedb)
 
 		if err != nil {
-			log.Fatal("db bgsave error (serializing) - ", err.Error())
+			appLog.Error(err.Error())
 		}
 
 		_, err = f.WriteAt(storeRAW, 0)
 
 		if err != nil {
-			log.Fatal("db bgsave error (write) - ", err.Error())
+			appLog.Error(err.Error())
 		}
 
 	}
 }
 
-func loadDB(s *Store) {
+func loadDB(s *store) {
+	appLog.Info(infoDbLoadings)
 	data, err := ioutil.ReadFile(dbFileName)
 
 	if err != nil {
-		log.Fatal("loaddb error - ", err.Error())
+		appLog.Error(err.Error())
 	}
 
 	var kv = []kv{}
@@ -176,7 +206,7 @@ func loadDB(s *Store) {
 	err = json.Unmarshal(data, &kv)
 
 	if err != nil {
-		log.Fatal("loadd error - ", err.Error())
+		appLog.Error(err.Error())
 	}
 
 	s.RLock()
@@ -186,6 +216,7 @@ func loadDB(s *Store) {
 	s.RUnlock()
 }
 
+//util
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {

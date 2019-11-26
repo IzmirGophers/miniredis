@@ -2,10 +2,9 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/gob"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -19,23 +18,32 @@ var (
 	host, port, dbFileName string
 	bgSaveInterval         time.Duration
 	appLog                 log.Logger
+	commands               map[string]func(*store, net.Conn, []string)
+	memStore               *store
 )
 
 const (
-	errParamNotEnough       = "Param not enough (required %b)"
+	errParamNotEnough       = "Param not enough (required %d)"
 	infoDbLoadings          = "DB Loading"
 	infoDBFileDoesNotExists = "DB file does not exists, creating (%s)"
 	infoDBFileOpening       = "DB file opening (%s)"
 	infoTCPListening        = "TCP Listening (%s)"
+	infoClientConnected     = "Client connected (%s)"
+
+	//default response
+	responseNull    = "NULL\n"
+	responseOK      = "OK\n"
+	responseUnknown = "UNKNOWN\n"
 )
 
 const (
 	ver = 1.0
 )
 
-type kv struct {
+type kvStore struct {
 	Key   string `json:"key"`
 	Value string `json:"val"`
+	Type  string `json:"type"`
 }
 
 type store struct {
@@ -56,10 +64,10 @@ func main() {
 	appLog = log.New("host", host, "port", port, "dbfile", dbFileName, "ver", ver)
 	appLog.Info("oOoOo miniredis oOoO")
 
-	memStore := &store{}
+	memStore = &store{}
 	memStore.l = make(map[string]string)
 
-	commands := map[string]func(*store, net.Conn, []string){
+	commands = map[string]func(*store, net.Conn, []string){
 		"GET": get,
 		"SET": set,
 		"DEL": del,
@@ -72,6 +80,7 @@ func main() {
 
 		if err != nil {
 			appLog.Error(err.Error())
+			os.Exit(1)
 		}
 	}
 
@@ -80,30 +89,41 @@ func main() {
 
 	if err != nil {
 		appLog.Error(err.Error())
+		os.Exit(1)
 	}
 
-	go bgSave(memStore, dbFile)
-	loadDB(memStore)
+	loadDB(memStore, dbFile)
+	go bgSave(memStore, gob.NewEncoder(dbFile))
 
 	hostURI := fmt.Sprintf("%s:%s", host, port)
 	tcpServ, err := net.Listen("tcp", hostURI)
 
 	if err != nil {
 		appLog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	defer tcpServ.Close()
 
 	appLog.Info(fmt.Sprintf(infoTCPListening, hostURI))
 
-	conn, err := tcpServ.Accept()
+	for {
+		conn, err := tcpServ.Accept()
 
-	if err != nil {
-		appLog.Error(err.Error())
+		if err != nil {
+			appLog.Error(err.Error())
+			os.Exit(1)
+		}
+
+		go listen(conn)
 	}
 
+}
+
+func listen(c net.Conn) {
+	appLog.Info(fmt.Sprintf(infoClientConnected, c.RemoteAddr()))
 	for {
-		msg, _ := bufio.NewReader(conn).ReadString('\n')
+		msg, _ := bufio.NewReader(c).ReadString('\n')
 		params := strings.Fields(msg)
 
 		if len(params) < 1 {
@@ -113,107 +133,79 @@ func main() {
 		cmd, exists := commands[strings.ToUpper(params[0])]
 
 		if !exists {
-			conn.Write([]byte("UNKNONW\n"))
-			break
+			c.Write([]byte(responseUnknown))
+			continue
 		}
 
-		cmd(memStore, conn, params)
+		cmd(memStore, c, params)
 	}
 }
 
 //cmds
-func get(store *store, conn net.Conn, params []string) {
-	if len(params) < 2 {
+func get(s *store, c net.Conn, p []string) {
+	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
 		return
 	}
 
-	store.RLock()
-	conn.Write([]byte(store.l[params[1]] + "\n"))
-	store.RUnlock()
+	s.RLock()
+	val, ok := s.l[p[1]]
+
+	if !ok {
+		c.Write([]byte(responseNull))
+		return
+	}
+	c.Write([]byte(val + "\n"))
+	s.RUnlock()
 
 }
 
-func del(store *store, conn net.Conn, params []string) {
-	if len(params) < 2 {
+func del(s *store, c net.Conn, p []string) {
+	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
 		return
 	}
 
-	store.RLock()
-	_, exists := store.l[params[1]]
+	s.RLock()
+	_, exists := s.l[p[1]]
 	if exists {
-		delete(store.l, params[1])
+		delete(s.l, p[1])
 	}
-	store.RUnlock()
+	s.RUnlock()
 
-	conn.Write([]byte("OK\n"))
+	c.Write([]byte(responseOK))
 }
 
-func set(store *store, conn net.Conn, params []string) {
-	if len(params) < 3 {
+func set(s *store, c net.Conn, p []string) {
+	if len(p) < 3 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
 		return
 	}
 
-	store.RLock()
-	store.l[params[1]] = params[2]
-	store.RUnlock()
+	s.RLock()
+	s.l[p[1]] = p[2]
+	s.RUnlock()
 
-	conn.Write([]byte("OK\n"))
+	c.Write([]byte(responseOK))
 }
 
 //bgSave background save function
-func bgSave(s *store, f *os.File) {
+func bgSave(s *store, enc *gob.Encoder) {
 	for {
 		time.Sleep(bgSaveInterval * time.Second)
-		var storedb = []kv{}
 
-		s.RLock()
-		for k, v := range s.l {
-			storedb = append(storedb, kv{
-				Key:   k,
-				Value: v,
-			})
-		}
-		s.RUnlock()
-
-		storeRAW, err := json.Marshal(storedb)
-
-		if err != nil {
-			appLog.Error(err.Error())
-		}
-
-		_, err = f.WriteAt(storeRAW, 0)
-
-		if err != nil {
-			appLog.Error(err.Error())
+		if err := enc.Encode(s.l); err != nil {
+			panic(err)
 		}
 
 	}
 }
 
-func loadDB(s *store) {
+func loadDB(s *store, dbFile *os.File) {
 	appLog.Info(infoDbLoadings)
-	data, err := ioutil.ReadFile(dbFileName)
 
-	if err != nil {
-		appLog.Error(err.Error())
-	}
-
-	var kv = []kv{}
-
-	err = json.Unmarshal(data, &kv)
-
-	if err != nil {
-		appLog.Error(err.Error())
-	}
-
-	s.RLock()
-	for _, v := range kv {
-		s.l[v.Key] = v.Value
-	}
-	s.RUnlock()
+	decoder := gob.NewDecoder(dbFile)
+	decoder.Decode(&s.l)
 }
 
 //util

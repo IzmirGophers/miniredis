@@ -40,12 +40,6 @@ const (
 	ver = 1.0
 )
 
-type kvStore struct {
-	Key   string `json:"key"`
-	Value string `json:"val"`
-	Type  string `json:"type"`
-}
-
 type store struct {
 	sync.RWMutex
 	l map[string]string

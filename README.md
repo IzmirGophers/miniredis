@@ -31,6 +31,7 @@ Miniredis is running on tcp, you can send commands through any client you can es
 | SET   | key, val | SET foo bar |
 | GET | key | GET foo |
 | DEL    | key | DEL foo |
+| KEYS    |  | KEYS |
 
 
 ## Benchmark

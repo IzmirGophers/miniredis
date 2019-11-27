@@ -46,6 +46,7 @@ Distributed under the GPL license. See ``LICENCE`` for more information.
 ## Contributors
 
 Sinan Ülker – [Twitter](https://twitter.com/unicod3) – [GitHub](https://github.com/unicod3/)
+
 Oğuzhan Yılmaz – [Twitter](https://twitter.com/c1982) – [GitHub](https://github.com/c1982/)
 
 ## Contributing

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,9 +63,10 @@ func main() {
 	memStore.l = make(map[string]string)
 
 	commands = map[string]func(*store, net.Conn, []string){
-		"GET": get,
-		"SET": set,
-		"DEL": del,
+		"GET":    get,
+		"SET":    set,
+		"DEL":    del,
+		"DBSIZE": dbSize,
 	}
 
 	if !fileExists(dbFileName) {
@@ -181,6 +183,11 @@ func set(s *store, c net.Conn, p []string) {
 	s.RUnlock()
 
 	c.Write([]byte(responseOK))
+}
+
+func dbSize(s *store, c net.Conn, p []string) {
+	length := strconv.Itoa(len(s.l))
+	c.Write([]byte(length + "\n"))
 }
 
 //bgSave background save function

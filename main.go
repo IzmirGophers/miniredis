@@ -62,10 +62,9 @@ func main() {
 	memStore.l = make(map[string]string)
 
 	commands = map[string]func(*store, net.Conn, []string){
-		"GET":  get,
-		"SET":  set,
-		"DEL":  del,
-		"KEYS": keys,
+		"GET": get,
+		"SET": set,
+		"DEL": del,
 	}
 
 	if !fileExists(dbFileName) {
@@ -182,14 +181,6 @@ func set(s *store, c net.Conn, p []string) {
 	s.RUnlock()
 
 	c.Write([]byte(responseOK))
-}
-
-func keys(s *store, c net.Conn, p []string) {
-	s.RLock()
-	for key, _ := range s.l {
-		c.Write([]byte(key + "\n"))
-	}
-	s.RUnlock()
 }
 
 //bgSave background save function

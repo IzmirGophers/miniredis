@@ -106,11 +106,17 @@ func main() {
 func listen(c net.Conn) {
 	appLog.Info(fmt.Sprintf(infoClientConnected, c.RemoteAddr()))
 	for {
-		msg, _ := bufio.NewReader(c).ReadString('\n')
+		msg, err := bufio.NewReader(c).ReadString('\n')
+
+		if err != nil {
+			continue
+		}
+
 		params := strings.Fields(msg)
 
 		if len(params) < 1 {
 			appLog.Error(errParamNotEnough)
+			continue
 		}
 
 		cmd, exists := commands[strings.ToUpper(params[0])]

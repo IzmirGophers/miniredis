@@ -39,16 +39,57 @@ Miniredis is running on tcp, you can send commands through any client you can es
 ``WIP``
  
 ## Meta
+<table>
+   <tr>
+      <td align="center">
+          <a href="https://github.com/riza">
+              <img src="https://avatars1.githubusercontent.com/u/2565849?s=460&v=4" width="100px;" alt="Sinan Ülker"/>
+              <br />
+              <sub>
+                  <b>Rıza Sabuncu</b>
+              </sub>
+          </a>
+      </td>
+  </tr>
+</table>
 
-Rıza Sabuncu – [Twitter](https://twitter.com/rizasabuncu) – [GitHub](https://github.com/riza/) - me@rizasabuncu.com
 
 Distributed under the GPL license. See ``LICENCE`` for more information.
 
 ## Contributors
 
-Sinan Ülker – [Twitter](https://twitter.com/unicod3) – [GitHub](https://github.com/unicod3/)
 
-Oğuzhan Yılmaz – [Twitter](https://twitter.com/c1982) – [GitHub](https://github.com/c1982/)
+<table>
+ <tr>
+    <td align="center">
+    	<a href="https://github.com/unicod3">
+    		<img src="https://avatars2.githubusercontent.com/u/2614110?s=460&v=4" width="100px;" alt="Sinan Ülker"/>
+    		<br />
+   			<sub>
+    			<b>Sinan Ülker</b>
+    		</sub>
+    	</a>
+    </td>
+    <td align="center">
+    	<a href="https://github.com/c1982">
+    		<img src="https://avatars2.githubusercontent.com/u/45575?s=460&v=4" width="100px;" alt="Oğuzhan Yılmaz"/>
+    		<br />
+    		<sub>
+    			<b>Oğuzhan Yılmaz</b>
+    		</sub>
+    	</a>
+    </td>
+    <td align="center">
+    	<a href="https://github.com/hto">
+			<img src="https://avatars3.githubusercontent.com/u/3604669?s=460&v=4" width="100px;" alt="Halil Tuğcan Özaktaş"/>
+	    <br />
+    	<sub>
+		    <b>Halil Tuğcan Özaktaş</b>
+	    </sub>
+    </a>
+    </td>
+  </tr>
+</table>
 
 ## Contributing
 
@@ -57,5 +98,4 @@ Oğuzhan Yılmaz – [Twitter](https://twitter.com/c1982) – [GitHub](https://g
 3. Commit your changes (`git commit -am 'Add some fooBar'`)
 4. Push to the branch (`git push origin feature/fooBar`)
 5. Create a new Pull Request
-
 

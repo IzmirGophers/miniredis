@@ -39,7 +39,14 @@ Miniredis is running on tcp, you can send commands through any client you can es
 
 ## Benchmark
 
-``WIP``
+```
+BenchmarkGet-12       	13450942	        91.6 ns/op
+BenchmarkSet-12       	 6472446	       204 ns/op
+BenchmarkMGet-12      	 5782011	       197 ns/op
+BenchmarkMset-12      	 3379750	       352 ns/op
+BenchmarkKeys-12      	  536695	      2153 ns/op
+BenchmarkDBSize-12    	32299999	        36.3 ns/op
+```
  
 ## Meta
 <table>

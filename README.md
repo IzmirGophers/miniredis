@@ -43,6 +43,12 @@ Rıza Sabuncu – [@rizasabuncu](https://twitter.com/rizasabuncu) – [@riza](ht
 
 Distributed under the GPL license. See ``LICENSE`` for more information.
 
+## Contributors
+
+Sinan Ülker – [@unicod3](https://twitter.com/unicod3) – [@unicod3](https://github.com/unicod3/)
+
+Oğuzhan Yılmaz – [@c1982](https://twitter.com/c1982) – [@c1982](https://github.com/c1982/)
+
 ## Contributing
 
 1. Fork it (<https://github.com/IzmirGophers/miniredis/fork>)

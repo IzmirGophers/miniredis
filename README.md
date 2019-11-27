@@ -28,8 +28,10 @@ Miniredis is running on tcp, you can send commands through any client you can es
 
 | Command | Params | Example |
 | ------ | ------ |----------- |
-| SET   | key, val | SET foo bar |
+| SET   | key val | SET foo bar |
 | GET | key | GET foo |
+| MSET   | key val key val key val | MSET foo bar foo1 bar1 foo2 bar2 |
+| MGET   | key, key, key ++ | MGET foo foo1 foo2 |
 | DEL    | key | DEL foo |
 | DBSIZE    |  | DBSIZE |
 | KEYS    |  | KEYS |
@@ -86,6 +88,15 @@ Distributed under the GPL license. See ``LICENCE`` for more information.
 	    <br />
     	<sub>
 		    <b>Halil Tuğcan Özaktaş</b>
+	    </sub>
+    </a>
+    </td>
+    <td align="center">
+    	<a href="https://github.com/fatihkahveci">
+			<img src="https://avatars0.githubusercontent.com/u/3296398?s=460&v=4" width="100px;" alt="Halil Tuğcan Özaktaş"/>
+	    <br />
+    	<sub>
+		    <b>Fatih Kahveci</b>
 	    </sub>
     </a>
     </td>

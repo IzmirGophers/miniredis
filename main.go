@@ -24,12 +24,11 @@ var (
 )
 
 const (
-	errParamNotEnough       = "Param not enough (required %d)"
-	infoDbLoadings          = "DB Loading"
-	infoDBFileDoesNotExists = "DB file does not exists, creating (%s)"
-	infoDBFileOpening       = "DB file opening (%s)"
-	infoTCPListening        = "TCP Listening (%s)"
-	infoClientConnected     = "Client connected (%s)"
+	errParamNotEnough   = "Param not enough (required %d)"
+	infoDbLoadings      = "DB Loading"
+	infoDBFileOpening   = "DB file opening (%s)"
+	infoTCPListening    = "TCP Listening (%s)"
+	infoClientConnected = "Client connected (%s)"
 
 	//default response
 	responseNull    = "NULL\n"
@@ -50,7 +49,7 @@ func init() {
 	flag.StringVar(&host, "host", "127.0.0.1", "Host")
 	flag.StringVar(&port, "port", "1234", "Port")
 	flag.StringVar(&dbFileName, "file", "store.db", "Store DB filename")
-	flag.DurationVar(&bgSaveInterval, "bgSaveInterval", 5, "Background save interval")
+	flag.DurationVar(&bgSaveInterval, "bgSaveInterval", 1, "Background save interval")
 }
 
 func main() {
@@ -72,27 +71,21 @@ func main() {
 		"KEYS":   keys,
 	}
 
-	if !fileExists(dbFileName) {
-		appLog.Info(fmt.Sprintf(infoDBFileDoesNotExists, dbFileName))
-
-		_, err := os.Create(dbFileName)
-
-		if err != nil {
-			appLog.Error(err.Error())
-			os.Exit(1)
-		}
-	}
-
 	appLog.Info(fmt.Sprintf(infoDBFileOpening, dbFileName))
-	dbFile, err := os.OpenFile(dbFileName, os.O_RDWR, 0644)
+	dbFile, err := os.OpenFile(dbFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 
 	if err != nil {
 		appLog.Error(err.Error())
 		os.Exit(1)
 	}
 
-	loadDB(memStore, dbFile)
-	go bgSave(memStore, gob.NewEncoder(dbFile))
+	err = loadDB(memStore, dbFile)
+
+	if err != nil {
+		// handle
+	}
+
+	go bgSave(memStore, dbFile)
 
 	hostURI := fmt.Sprintf("%s:%s", host, port)
 	tcpServ, err := net.Listen("tcp", hostURI)
@@ -240,9 +233,13 @@ func keys(s *store, c net.Conn, p []string) {
 }
 
 //bgSave background save function
-func bgSave(s *store, enc *gob.Encoder) {
+func bgSave(s *store, f *os.File) {
 	for {
 		time.Sleep(bgSaveInterval * time.Second)
+		//bbgsave olayını msgpack al
+		f.Truncate(0)
+
+		enc := gob.NewEncoder(f)
 
 		if err := enc.Encode(s.l); err != nil {
 			panic(err)
@@ -251,18 +248,15 @@ func bgSave(s *store, enc *gob.Encoder) {
 	}
 }
 
-func loadDB(s *store, dbFile *os.File) {
+func loadDB(s *store, f *os.File) error {
 	appLog.Info(infoDbLoadings)
 
-	decoder := gob.NewDecoder(dbFile)
-	decoder.Decode(&s.l)
-}
+	decoder := gob.NewDecoder(f)
+	err := decoder.Decode(&s.l)
 
-//util
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
+	if err != nil {
+		return err
 	}
-	return !info.IsDir()
+
+	return nil
 }

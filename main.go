@@ -10,9 +10,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/cornelk/hashmap"
 	"github.com/semihalev/log"
 )
 
@@ -20,8 +20,8 @@ var (
 	host, port, dbFileName string
 	bgSaveInterval         time.Duration
 	appLog                 log.Logger
-	commands               map[string]func(*store, net.Conn, []string)
-	memStore               *store
+	commands               map[string]func(*hashmap.HashMap, []string) []string
+	store                  *hashmap.HashMap
 )
 
 const (
@@ -41,11 +41,6 @@ const (
 	ver = 1.0
 )
 
-type store struct {
-	sync.RWMutex
-	l map[string]string
-}
-
 func init() {
 	flag.StringVar(&host, "host", "127.0.0.1", "Host")
 	flag.StringVar(&port, "port", "1234", "Port")
@@ -59,10 +54,9 @@ func main() {
 	appLog = log.New("host", host, "port", port, "dbfile", dbFileName, "ver", ver)
 	appLog.Info("oOoOo miniredis oOoO")
 
-	memStore = &store{}
-	memStore.l = make(map[string]string)
+	store = &hashmap.HashMap{}
 
-	commands = map[string]func(*store, net.Conn, []string){
+	commands = map[string]func(*hashmap.HashMap, []string) []string{
 		"GET":    get,
 		"MGET":   mget,
 		"SET":    set,
@@ -80,14 +74,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = loadDB(memStore, dbFile)
+	loadDB(store, dbFile)
 
-	if err != nil {
-		appLog.Error(err.Error())
-		os.Exit(1)
-	}
-
-	go bgSave(memStore, dbFile)
+	go bgSave(store, dbFile)
 
 	hostURI := fmt.Sprintf("%s:%s", host, port)
 	tcpServ, err := net.Listen("tcp", hostURI)
@@ -131,134 +120,145 @@ func listen(c net.Conn) {
 			continue
 		}
 
-		cmd(memStore, c, params)
+		rsp := cmd(store, params)
+
+		for _, r := range rsp {
+			c.Write([]byte(r + "\n"))
+		}
+
 	}
 }
 
 //cmds
-func get(s *store, c net.Conn, p []string) {
+func get(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
-	s.RLock()
-	val, ok := s.l[p[1]]
+	val, ok := s.Get(p[1])
 
 	if !ok {
-		c.Write([]byte(responseNull))
-		return
+		rsp = append(rsp, responseNull)
+		return rsp
 	}
-	c.Write([]byte(val + "\n"))
-	s.RUnlock()
 
+	rsp = append(rsp, val.(string))
+
+	return rsp
 }
 
-func mget(s *store, c net.Conn, p []string) {
+func mget(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
-	s.RLock()
 	for i := 1; i < len(p); i++ {
 
-		val, ok := s.l[p[i]]
+		val, ok := s.Get(p[i])
 		if !ok {
-			c.Write([]byte(responseNull))
+			rsp = append(rsp, responseNull)
+			return rsp
 		}
-		c.Write([]byte(val + "\n"))
+
+		rsp = append(rsp, val.(string))
 
 	}
 
-	s.RUnlock()
-
+	return rsp
 }
 
-func del(s *store, c net.Conn, p []string) {
+func del(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
-	s.RLock()
-	_, exists := s.l[p[1]]
+	_, exists := s.Get(p[1])
+
 	if exists {
-		delete(s.l, p[1])
+		s.Del(p[1])
 	}
-	s.RUnlock()
 
-	c.Write([]byte(responseOK))
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func set(s *store, c net.Conn, p []string) {
+func set(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 3 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
-		return
+		return rsp
 	}
 
-	s.RLock()
-	s.l[p[1]] = p[2]
-	s.RUnlock()
+	s.Set(p[1], p[2])
 
-	c.Write([]byte(responseOK))
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func mset(s *store, c net.Conn, p []string) {
+func mset(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 3 || (len(p)-1)%2 == 1 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
-		return
+		return rsp
 	}
 
-	s.RLock()
 	for i := 1; i < len(p); i += 2 {
-		s.l[p[i]] = p[i+1]
-
+		s.Set(p[i], p[i+1])
 	}
-	s.RUnlock()
 
-	c.Write([]byte(responseOK))
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func dbSize(s *store, c net.Conn, p []string) {
-	length := strconv.Itoa(len(s.l))
-	c.Write([]byte(length + "\n"))
-
+func dbSize(s *hashmap.HashMap, p []string) (rsp []string) {
+	length := strconv.Itoa(s.Len())
+	rsp = append(rsp, length)
+	return rsp
 }
 
-func keys(s *store, c net.Conn, p []string) {
-	s.RLock()
-	for key := range s.l {
-		c.Write([]byte(key + "\n"))
+func keys(s *hashmap.HashMap, p []string) (rsp []string) {
+
+	for item := range s.Iter() {
+		rsp = append(rsp, item.Key.(string))
 	}
-	s.RUnlock()
+	return rsp
 }
 
 //bgSave background save function
-func bgSave(s *store, f *os.File) {
+func bgSave(s *hashmap.HashMap, f *os.File) {
 	for {
 		time.Sleep(bgSaveInterval * time.Second)
-		var buf bytes.Buffer
+
+		var (
+			buf bytes.Buffer
+			tmp = make(map[string]string)
+		)
+
+		for item := range s.Iter() {
+			tmp[item.Key.(string)] = item.Value.(string)
+		}
 
 		enc := gob.NewEncoder(&buf)
 
-		if err := enc.Encode(s.l); err != nil {
-			panic(err)
+		if err := enc.Encode(tmp); err != nil {
+			appLog.Error(err.Error())
 		}
 
 		f.WriteAt(buf.Bytes(), 0)
 	}
 }
 
-func loadDB(s *store, f *os.File) error {
+func loadDB(s *hashmap.HashMap, f *os.File) {
 	appLog.Info(infoDbLoadings)
 
-	decoder := gob.NewDecoder(f)
-	err := decoder.Decode(&s.l)
+	var tmp = make(map[string]string)
 
-	if err != nil {
-		return err
+	decoder := gob.NewDecoder(f)
+	decoder.Decode(&tmp)
+
+	for key, value := range tmp {
+		s.Set(key, value)
 	}
 
-	return nil
 }

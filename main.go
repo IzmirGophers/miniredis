@@ -63,9 +63,11 @@ func main() {
 	memStore.l = make(map[string]string)
 
 	commands = map[string]func(*store, net.Conn, []string){
-		"GET":    get,
-		"SET":    set,
-		"DEL":    del,
+		"GET":  get,
+		"MGET": mget,
+		"SET":  set,
+		"MSET": mset,
+		"DEL":  del,
 		"DBSIZE": dbSize,
 	}
 
@@ -156,6 +158,27 @@ func get(s *store, c net.Conn, p []string) {
 
 }
 
+func mget(s *store, c net.Conn, p []string) {
+	if len(p) < 2 {
+		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
+		return
+	}
+
+	s.RLock()
+	for i := 1; i < len(p); i++ {
+
+		val, ok := s.l[p[i]]
+		if !ok {
+			c.Write([]byte(responseNull))
+		}
+		c.Write([]byte(val + "\n"))
+
+	}
+
+	s.RUnlock()
+
+}
+
 func del(s *store, c net.Conn, p []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
@@ -185,9 +208,27 @@ func set(s *store, c net.Conn, p []string) {
 	c.Write([]byte(responseOK))
 }
 
+
+func mset(s *store, c net.Conn, p []string) {
+	if len(p) < 3 || (len(p)-1)%2 == 1 {
+		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
+		return
+	}
+
+	s.RLock()
+	for i := 1; i < len(p); i += 2 {
+		s.l[p[i]] = p[i+1]
+
+	}
+	s.RUnlock()
+
+	c.Write([]byte(responseOK))
+}
+
 func dbSize(s *store, c net.Conn, p []string) {
 	length := strconv.Itoa(len(s.l))
 	c.Write([]byte(length + "\n"))
+
 }
 
 //bgSave background save function

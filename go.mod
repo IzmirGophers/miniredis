@@ -3,6 +3,7 @@ module miniredis
 go 1.13
 
 require (
+	github.com/cornelk/hashmap v1.0.1
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect

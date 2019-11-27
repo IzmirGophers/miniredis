@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	appLog.Info(fmt.Sprintf(infoDBFileOpening, dbFileName))
-	dbFile, err := os.OpenFile(dbFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	dbFile, err := os.OpenFile(dbFileName, os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		appLog.Error(err.Error())
@@ -82,7 +83,8 @@ func main() {
 	err = loadDB(memStore, dbFile)
 
 	if err != nil {
-		// handle
+		appLog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	go bgSave(memStore, dbFile)
@@ -226,7 +228,7 @@ func dbSize(s *store, c net.Conn, p []string) {
 
 func keys(s *store, c net.Conn, p []string) {
 	s.RLock()
-	for key, _ := range s.l {
+	for key := range s.l {
 		c.Write([]byte(key + "\n"))
 	}
 	s.RUnlock()
@@ -236,15 +238,15 @@ func keys(s *store, c net.Conn, p []string) {
 func bgSave(s *store, f *os.File) {
 	for {
 		time.Sleep(bgSaveInterval * time.Second)
-		//bbgsave olayını msgpack al
-		f.Truncate(0)
+		var buf bytes.Buffer
 
-		enc := gob.NewEncoder(f)
+		enc := gob.NewEncoder(&buf)
 
 		if err := enc.Encode(s.l); err != nil {
 			panic(err)
 		}
 
+		f.WriteAt(buf.Bytes(), 0)
 	}
 }
 

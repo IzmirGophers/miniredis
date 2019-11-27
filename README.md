@@ -39,15 +39,14 @@ Miniredis is running on tcp, you can send commands through any client you can es
  
 ## Meta
 
-Rıza Sabuncu – [@rizasabuncu](https://twitter.com/rizasabuncu) – [@riza](https://github.com/riza/) - me@rizasabuncu.com
+Rıza Sabuncu – [Twitter](https://twitter.com/rizasabuncu) – [GitHub](https://github.com/riza/) - me@rizasabuncu.com
 
-Distributed under the GPL license. See ``LICENSE`` for more information.
+Distributed under the GPL license. See ``LICENCE`` for more information.
 
 ## Contributors
 
-Sinan Ülker – [@unicod3](https://twitter.com/unicod3) – [@unicod3](https://github.com/unicod3/)
-
-Oğuzhan Yılmaz – [@c1982](https://twitter.com/c1982) – [@c1982](https://github.com/c1982/)
+Sinan Ülker – [Twitter](https://twitter.com/unicod3) – [GitHub](https://github.com/unicod3/)
+Oğuzhan Yılmaz – [Twitter](https://twitter.com/c1982) – [GitHub](https://github.com/c1982/)
 
 ## Contributing
 

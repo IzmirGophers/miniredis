@@ -15,14 +15,14 @@ Miniredis is project a mini project written for for GDG Istanbul Golang Workshop
 OS X & Linux:
 
 ```sh
-$ go get https://github.com/IzmirGophers/miniredis
+$ go get github.com/IzmirGophers/miniredis
 $ cd $GOPATH/src/github.com/IzmirGophers/miniredis
 $ go install
 ```
 
 ## Usage example
 
-Miniredis is running on tcp, you can send commands through any client you can establish tcp connection.
+Miniredis is running on tcp, you can send commands through any client you can establish TCP connection.
 
 ## Commands 
 
@@ -40,13 +40,21 @@ Miniredis is running on tcp, you can send commands through any client you can es
 ## Benchmark
 
 ```
-BenchmarkGet-12       	13450942	        91.6 ns/op
-BenchmarkSet-12       	 6472446	       204 ns/op
-BenchmarkMGet-12      	 5782011	       197 ns/op
-BenchmarkMset-12      	 3379750	       352 ns/op
-BenchmarkKeys-12      	  536695	      2153 ns/op
-BenchmarkDBSize-12    	32299999	        36.3 ns/op
+goos: linux
+goarch: amd64
+pkg: github.com/IzmirGophers/miniredis
+BenchmarkGet    	 5000000	       249 ns/op
+BenchmarkSet    	 3000000	       518 ns/op
+BenchmarkMGet   	 3000000	       577 ns/op
+BenchmarkMset   	 2000000	       966 ns/op
+BenchmarkKeys   	  500000	      3639 ns/op
+BenchmarkDBSize 	20000000	       105 ns/op
+PASS
+ok  	github.com/IzmirGophers/miniredis	12.898s
 ```
+
+Scaleway - Intel(R) Atom(TM) CPU C3955 @ 2.10GHz - 1GB 
+
  
 ## Meta
 <table>

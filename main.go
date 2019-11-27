@@ -63,12 +63,13 @@ func main() {
 	memStore.l = make(map[string]string)
 
 	commands = map[string]func(*store, net.Conn, []string){
-		"GET":  get,
-		"MGET": mget,
-		"SET":  set,
-		"MSET": mset,
-		"DEL":  del,
+		"GET":    get,
+		"MGET":   mget,
+		"SET":    set,
+		"MSET":   mset,
+		"DEL":    del,
 		"DBSIZE": dbSize,
+		"KEYS":   keys,
 	}
 
 	if !fileExists(dbFileName) {
@@ -208,7 +209,6 @@ func set(s *store, c net.Conn, p []string) {
 	c.Write([]byte(responseOK))
 }
 
-
 func mset(s *store, c net.Conn, p []string) {
 	if len(p) < 3 || (len(p)-1)%2 == 1 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
@@ -229,6 +229,14 @@ func dbSize(s *store, c net.Conn, p []string) {
 	length := strconv.Itoa(len(s.l))
 	c.Write([]byte(length + "\n"))
 
+}
+
+func keys(s *store, c net.Conn, p []string) {
+	s.RLock()
+	for key, _ := range s.l {
+		c.Write([]byte(key + "\n"))
+	}
+	s.RUnlock()
 }
 
 //bgSave background save function

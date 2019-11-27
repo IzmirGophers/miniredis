@@ -20,7 +20,7 @@ var (
 	host, port, dbFileName string
 	bgSaveInterval         time.Duration
 	appLog                 log.Logger
-	commands               map[string]func(*hashmap.HashMap, net.Conn, []string)
+	commands               map[string]func(*hashmap.HashMap, []string) []string
 	store                  *hashmap.HashMap
 )
 
@@ -56,7 +56,7 @@ func main() {
 
 	store = &hashmap.HashMap{}
 
-	commands = map[string]func(*hashmap.HashMap, net.Conn, []string){
+	commands = map[string]func(*hashmap.HashMap, []string) []string{
 		"GET":    get,
 		"MGET":   mget,
 		"SET":    set,
@@ -120,47 +120,59 @@ func listen(c net.Conn) {
 			continue
 		}
 
-		cmd(store, c, params)
+		rsp := cmd(store, params)
+
+		for _, r := range rsp {
+			c.Write([]byte(r + "\n"))
+		}
+
 	}
 }
 
 //cmds
-func get(s *hashmap.HashMap, c net.Conn, p []string) {
+func get(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
 	val, ok := s.Get(p[1])
 
 	if !ok {
-		c.Write([]byte(responseNull))
-		return
+		rsp = append(rsp, responseNull)
+		return rsp
 	}
-	c.Write([]byte(val.(string) + "\n"))
+
+	rsp = append(rsp, val.(string))
+
+	return rsp
 }
 
-func mget(s *hashmap.HashMap, c net.Conn, p []string) {
+func mget(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
 	for i := 1; i < len(p); i++ {
 
 		val, ok := s.Get(p[i])
 		if !ok {
-			c.Write([]byte(responseNull))
+			rsp = append(rsp, responseNull)
+			return rsp
 		}
-		c.Write([]byte(val.(string) + "\n"))
+
+		rsp = append(rsp, val.(string))
+
 	}
 
+	return rsp
 }
 
-func del(s *hashmap.HashMap, c net.Conn, p []string) {
+func del(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 2 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 1))
-		return
+		return rsp
 	}
 
 	_, exists := s.Get(p[1])
@@ -169,43 +181,48 @@ func del(s *hashmap.HashMap, c net.Conn, p []string) {
 		s.Del(p[1])
 	}
 
-	c.Write([]byte(responseOK))
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func set(s *hashmap.HashMap, c net.Conn, p []string) {
+func set(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 3 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
-		return
+		return rsp
 	}
+
 	s.Set(p[1], p[2])
-	c.Write([]byte(responseOK))
+
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func mset(s *hashmap.HashMap, c net.Conn, p []string) {
+func mset(s *hashmap.HashMap, p []string) (rsp []string) {
 	if len(p) < 3 || (len(p)-1)%2 == 1 {
 		appLog.Error(fmt.Sprintf(errParamNotEnough, 2))
-		return
+		return rsp
 	}
 
 	for i := 1; i < len(p); i += 2 {
 		s.Set(p[i], p[i+1])
 	}
 
-	c.Write([]byte(responseOK))
+	rsp = append(rsp, responseOK)
+	return rsp
 }
 
-func dbSize(s *hashmap.HashMap, c net.Conn, p []string) {
+func dbSize(s *hashmap.HashMap, p []string) (rsp []string) {
 	length := strconv.Itoa(s.Len())
-	c.Write([]byte(length + "\n"))
-
+	rsp = append(rsp, length)
+	return rsp
 }
 
-func keys(s *hashmap.HashMap, c net.Conn, p []string) {
+func keys(s *hashmap.HashMap, p []string) (rsp []string) {
 
 	for item := range s.Iter() {
-		c.Write([]byte(item.Value.(string) + "\n"))
+		rsp = append(rsp, item.Key.(string))
 	}
-
+	return rsp
 }
 
 //bgSave background save function

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ var (
 )
 
 const (
+	errEmptyMsg         = "You need to use one of these: %s"
 	errParamNotEnough   = "Param not enough (required %d)"
 	infoDbLoadings      = "DB Loading"
 	infoDBFileOpening   = "DB file opening (%s)"
@@ -32,9 +34,8 @@ const (
 	infoClientConnected = "Client connected (%s)"
 
 	//default response
-	responseNull    = "NULL\n"
-	responseOK      = "OK\n"
-	responseUnknown = "UNKNOWN\n"
+	responseNull = "NULL\n"
+	responseOK   = "OK\n"
 )
 
 const (
@@ -112,17 +113,23 @@ func listen(c net.Conn) {
 			continue
 		}
 
-		params := strings.Fields(msg)
-
-		if len(params) < 1 {
-			appLog.Error(errParamNotEnough)
+		if len(msg) < 3 {
+			keys := reflect.ValueOf(commands).MapKeys()
+			errMsg := fmt.Sprintf(errEmptyMsg, keys)
+			c.Write([]byte(errMsg + "\n"))
+			appLog.Info(errMsg)
 			continue
 		}
+
+		params := strings.Fields(msg)
 
 		cmd, exists := commands[strings.ToUpper(params[0])]
 
 		if !exists {
-			c.Write([]byte(responseUnknown))
+			keys := reflect.ValueOf(commands).MapKeys()
+			errMsg := fmt.Sprintf(errEmptyMsg, keys)
+			c.Write([]byte(errMsg + "\n"))
+			appLog.Info(errMsg)
 			continue
 		}
 

@@ -57,20 +57,6 @@ Scaleway - Intel(R) Atom(TM) CPU C3955 @ 2.10GHz - 1GB
 
  
 ## Meta
-<table>
-   <tr>
-      <td align="center">
-          <a href="https://github.com/riza">
-              <img src="https://avatars1.githubusercontent.com/u/2565849?s=460&v=4" width="100px;" alt="Sinan Ülker"/>
-              <br />
-              <sub>
-                  <b>Rıza Sabuncu</b>
-              </sub>
-          </a>
-      </td>
-  </tr>
-</table>
-
 
 Distributed under the GPL license. See ``LICENCE`` for more information.
 
@@ -79,6 +65,15 @@ Distributed under the GPL license. See ``LICENCE`` for more information.
 
 <table>
  <tr>
+<td align="center">
+          <a href="https://github.com/riza">
+              <img src="https://avatars1.githubusercontent.com/u/2565849?s=460&v=4" width="100px;" alt="Sinan Ülker"/>
+              <br />
+              <sub>
+                  <b>Rıza Sabuncu</b>
+              </sub>
+          </a>
+      </td>
     <td align="center">
     	<a href="https://github.com/unicod3">
     		<img src="https://avatars2.githubusercontent.com/u/2614110?s=460&v=4" width="100px;" alt="Sinan Ülker"/>
